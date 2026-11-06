@@ -1,15 +1,17 @@
 # Last-Minute Study frontend
 
-Next.js web application for the study and revision product. The frontend source is in this directory; the Django service lives in `../backend/`.
+The Next.js App Router client for the local-first revision workspace. It includes the focus timer, subject/topic planner, progress tracking, exam countdown, and private per-subject notes.
+
+For product scope, privacy notes, and deployment setup, see the [repository README](../README.md).
 
 ## Run locally
-
-Requires Node.js and npm.
 
 ```sh
 npm ci
 npm run dev
 ```
+
+Open <http://localhost:3000>.
 
 ## Checks
 
@@ -17,3 +19,5 @@ npm run dev
 npm run lint
 npm run build
 ```
+
+`next build` creates the static site in `out/`. Browser state is stored locally; no API URL or secret is required.

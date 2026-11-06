@@ -1,28 +1,45 @@
 # Last-Minute Study
 
-A study and revision application with a Django backend and a Next.js frontend.
+**One page. One next step. That’s enough.** A calm, local-first revision workspace that turns a large exam list into small sessions you can finish.
 
-## Repository layout
+**Live app:** <https://last-minute-study-board.onrender.com/>
 
-- `backend/` — Django project for accounts, subjects, categories, notes, and payment-related flows
-- `frontend/` — Next.js web interface
+## Study tools
+
+- Set an exam date and see a live day countdown.
+- Add up to 12 subjects, search by subject or topic, and build each list from small revision sessions.
+- Check off topics and see progress update immediately.
+- Use the 25-minute focus timer, pause it, resume it, or reset it.
+- Keep a short note for each subject.
+- Continue where you left off: subjects, progress, exam date, focus count, and notes are saved in this browser.
+- Clear all local study data when you need a fresh start.
+
+The preview starts with sample subjects. Replace them with your own plan. There is no account, cloud sync, payment, or backend connection in the live app; browser data remains on the current device.
 
 ## Run locally
 
-Start the backend:
-
-```sh
-cd backend
-python manage.py migrate
-python manage.py runserver
-```
-
-In a second terminal, start the frontend:
-
-```sh
+```powershell
 cd frontend
 npm ci
 npm run dev
 ```
 
-The frontend uses the scripts in `frontend/package.json`. Configure any backend environment values in your local environment; do not commit secrets.
+Open <http://localhost:3000>.
+
+## Verify and build
+
+```powershell
+npm run lint
+npm run build
+```
+
+Next.js static export writes the deployable site to `frontend/out`. Render publishes that directory from this repository. The deployment and response headers are described in [`render.yaml`](render.yaml).
+
+## Repository map
+
+- `frontend/` — Next.js revision workspace and local-first browser experience.
+- `backend/` — Django project scaffolding; its apps do not currently expose a study API and are not used by the live page.
+
+## Privacy
+
+Study data is saved under `last-minute-study.v1` in browser local storage. It is not sent to a server. Do not use a shared device for private notes. **Clear this browser’s study data** removes the locally saved plan.

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://last-minute-study-board.onrender.com/sitemap.xml
