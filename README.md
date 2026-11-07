@@ -12,6 +12,7 @@
 - Use the 25-minute focus timer, pause it, resume it, or reset it. Its clock stays accurate when a browser tab is in the background.
 - Keep a short note for each subject.
 - Continue where you left off: subjects, progress, exam date, focus count, and notes are saved in this browser.
+- Download a versioned JSON backup or restore it on another browser; the file stays on your device until you choose where to save it.
 - Clear all local study data when you need a fresh start; this also stops and resets an active focus timer.
 
 The preview starts with sample subjects. Replace them with your own plan. There is no account, cloud sync, payment, or backend connection in the live app; browser data remains on the current device. If browser storage is blocked or full, edits stay in memory until the page is reloaded or closed.

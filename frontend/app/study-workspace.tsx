@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
 import { getServerStudySnapshot, getStudySnapshot, parseSavedState, subscribeToStudyState, updateStudyState } from "./study-state";
 
 const COLORS = ["#584be1", "#e77953", "#258c76", "#bc5b90", "#397db4"];
 const STORAGE_WARNING = "Storage is unavailable. Changes stay here until this page reloads or closes.";
+const BACKUP_FORMAT = "last-minute-study-backup";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -30,6 +35,7 @@ export default function StudyWorkspace() {
   const timerInterval = useRef<number | null>(null);
   const secondsRef = useRef(seconds);
   const deadlineRef = useRef<number | null>(null);
+  const backupInput = useRef<HTMLInputElement>(null);
 
   const completeFocusSession = useCallback(() => {
     if (deadlineRef.current === null) return;
@@ -129,6 +135,50 @@ export default function StudyWorkspace() {
     const saved = updateStudyState(() => ({ subjects: [], examDate: "", focusSessions: 0 }));
     setSelectedNote("");
     announceSave(saved, "Workspace cleared on this device.");
+  };
+
+  const downloadBackup = () => {
+    const date = new Date().toISOString().slice(0, 10);
+    const backup = { format: BACKUP_FORMAT, version: 1, exportedAt: new Date().toISOString(), state: saved };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `last-minute-study-${date}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    setMessage("Study backup downloaded.");
+  };
+
+  const restoreBackup = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) return;
+    if (file.size > 1_000_000) {
+      setMessage("That backup is too large to restore.");
+      return;
+    }
+
+    let candidate: unknown;
+    try {
+      candidate = JSON.parse(await file.text()) as unknown;
+    } catch {
+      setMessage("This file is not a readable study backup.");
+      return;
+    }
+    if (!isRecord(candidate) || candidate.format !== BACKUP_FORMAT || candidate.version !== 1 || !isRecord(candidate.state) || !Array.isArray(candidate.state.subjects)) {
+      setMessage("This file is not a supported study backup.");
+      return;
+    }
+    if (!window.confirm("Restore this backup and replace the study plan currently saved in this browser?")) return;
+
+    const restored = parseSavedState(JSON.stringify(candidate.state));
+    deadlineRef.current = null;
+    secondsRef.current = 25 * 60;
+    setSeconds(25 * 60);
+    setTimerRunning(false);
+    const persisted = updateStudyState(() => restored);
+    setSelectedNote(restored.subjects[0]?.id || "");
+    announceSave(persisted, `Backup restored with ${restored.subjects.length} subjects.`);
   };
 
   const resetTimer = () => {
@@ -266,7 +316,7 @@ export default function StudyWorkspace() {
         {activeNote ? <div className="notes-paper"><div className="notes-toolbar"><label htmlFor="note-subject">For</label><select id="note-subject" value={activeNote.id} onChange={(event) => setSelectedNote(event.target.value)}>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select><span className="notes-count">{activeNote.note.length.toLocaleString()} / 2,000</span></div><textarea aria-label={`Quick notes for ${activeNote.name}`} value={activeNote.note} onChange={(event) => updateNote(event.target.value)} maxLength={2000} placeholder="Formulas, questions to revisit, or one thing you want to remember…" /><p className="notes-foot">Private to this browser. No account or cloud sync.</p></div> : <div className="notes-empty">Add a subject to start a quick note.</div>}
       </section>
 
-      <footer className="footer section-shell"><a className="brand" href="#overview"><span className="brand-icon" aria-hidden="true">L<span>.</span></span><span>last minute<span className="brand-study">study</span></span></a><p>Make the next session count. Let the rest wait.</p><button type="button" onClick={clearWorkspace}>Clear this browser’s study data</button><span className="privacy-line">Your plan and notes stay on this device.</span></footer>
+      <footer className="footer section-shell"><a className="brand" href="#overview"><span className="brand-icon" aria-hidden="true">L<span>.</span></span><span>last minute<span className="brand-study">study</span></span></a><p>Make the next session count. Let the rest wait.</p><div className="backup-actions"><button type="button" onClick={downloadBackup}>Download backup</button><button type="button" onClick={() => backupInput.current?.click()}>Restore backup</button><input ref={backupInput} type="file" accept="application/json,.json" hidden onChange={restoreBackup} /></div><button type="button" onClick={clearWorkspace}>Clear this browser’s study data</button><span className="privacy-line">Your plan and notes stay on this device.</span></footer>
       <p className="sr-only" role="status" aria-live="polite">{message}</p>
     </main>
   );
