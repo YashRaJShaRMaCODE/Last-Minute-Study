@@ -14,7 +14,7 @@
 - Continue where you left off: subjects, progress, exam date, focus count, and notes are saved in this browser.
 - Clear all local study data when you need a fresh start; this also stops and resets an active focus timer.
 
-The preview starts with sample subjects. Replace them with your own plan. There is no account, cloud sync, payment, or backend connection in the live app; browser data remains on the current device.
+The preview starts with sample subjects. Replace them with your own plan. There is no account, cloud sync, payment, or backend connection in the live app; browser data remains on the current device. If browser storage is blocked or full, edits stay in memory until the page is reloaded or closed.
 
 ## Run locally
 
@@ -30,8 +30,11 @@ Open <http://localhost:3000>.
 
 ```powershell
 npm run lint
+npm run typecheck
 npm run build
 ```
+
+GitHub Actions runs lint, type checks, dependency audit, and the static build for pushes and pull requests.
 
 Next.js static export writes the deployable site to `frontend/out`. Render publishes that directory from this repository. The deployment and response headers are described in [`render.yaml`](render.yaml).
 

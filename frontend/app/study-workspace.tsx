@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { getServerStudySnapshot, getStudySnapshot, parseSavedState, subscribeToStudyState, updateStudyState } from "./study-state";
 
 const COLORS = ["#584be1", "#e77953", "#258c76", "#bc5b90", "#397db4"];
+const STORAGE_WARNING = "Storage is unavailable. Changes stay here until this page reloads or closes.";
 
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -78,9 +79,12 @@ export default function StudyWorkspace() {
   const activeNote = subjects.find((subject) => subject.id === selectedNote) || subjects[0];
 
   const updateSubjects = (update: (current: typeof subjects) => typeof subjects) => {
-    if (!updateStudyState((current) => ({ ...current, subjects: update(current.subjects) }))) {
-      setMessage("Browser storage is unavailable. Changes will last only for this visit.");
-    }
+    return updateStudyState((current) => ({ ...current, subjects: update(current.subjects) }));
+  };
+
+  const announceSave = (saved: boolean, successMessage?: string) => {
+    if (!saved) setMessage(STORAGE_WARNING);
+    else if (successMessage) setMessage(successMessage);
   };
 
   const addSubject = (event: FormEvent<HTMLFormElement>) => {
@@ -88,31 +92,32 @@ export default function StudyWorkspace() {
     const name = newSubject.trim();
     if (!name || subjects.length >= 12) return;
     const subject = { id: newId(), name, color: COLORS[subjects.length % COLORS.length], topics: [], note: "" };
-    updateSubjects((current) => [...current, subject]);
+    const saved = updateSubjects((current) => [...current, subject]);
     setSelectedNote(subject.id);
     setNewSubject("");
-    setMessage(`${name} added to your revision list.`);
+    announceSave(saved, `${name} added to your revision list.`);
   };
 
   const addTopic = (event: FormEvent<HTMLFormElement>, subjectId: string) => {
     event.preventDefault();
     const title = (topicDrafts[subjectId] || "").trim();
     if (!title) return;
-    updateSubjects((current) => current.map((subject) => subject.id === subjectId
+    const saved = updateSubjects((current) => current.map((subject) => subject.id === subjectId
       ? { ...subject, topics: [...subject.topics, { id: newId(), title, minutes: 25, done: false }].slice(0, 40) }
       : subject));
     setTopicDrafts((current) => ({ ...current, [subjectId]: "" }));
-    setMessage("Topic added as a 25-minute session.");
+    announceSave(saved, "Topic added as a 25-minute session.");
   };
 
   const toggleTopic = (subjectId: string, topicId: string) => {
-    updateSubjects((current) => current.map((subject) => subject.id === subjectId
+    const saved = updateSubjects((current) => current.map((subject) => subject.id === subjectId
       ? { ...subject, topics: subject.topics.map((topic) => topic.id === topicId ? { ...topic, done: !topic.done } : topic) }
       : subject));
+    announceSave(saved);
   };
 
   const updateNote = (value: string) => {
-    updateSubjects((current) => current.map((subject) => subject.id === activeNote?.id ? { ...subject, note: value.slice(0, 2000) } : subject));
+    announceSave(updateSubjects((current) => current.map((subject) => subject.id === activeNote?.id ? { ...subject, note: value.slice(0, 2000) } : subject)));
   };
 
   const clearWorkspace = () => {
@@ -121,9 +126,9 @@ export default function StudyWorkspace() {
     secondsRef.current = 25 * 60;
     setSeconds(25 * 60);
     setTimerRunning(false);
-    updateStudyState(() => ({ subjects: [], examDate: "", focusSessions: 0 }));
+    const saved = updateStudyState(() => ({ subjects: [], examDate: "", focusSessions: 0 }));
     setSelectedNote("");
-    setMessage("Workspace cleared on this device.");
+    announceSave(saved, "Workspace cleared on this device.");
   };
 
   const resetTimer = () => {
@@ -155,7 +160,7 @@ export default function StudyWorkspace() {
   };
 
   const setExamDate = (value: string) => {
-    updateStudyState((current) => ({ ...current, examDate: value }));
+    announceSave(updateStudyState((current) => ({ ...current, examDate: value })));
   };
 
   return (

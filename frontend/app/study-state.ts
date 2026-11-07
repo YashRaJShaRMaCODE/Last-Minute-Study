@@ -46,6 +46,7 @@ export const DEFAULT_STATE: SavedState = {
 const DEFAULT_SNAPSHOT = JSON.stringify(DEFAULT_STATE);
 const subscribers = new Set<() => void>();
 const COLORS_BY_INDEX = (index: number) => COLORS[index % COLORS.length];
+let volatileSnapshot: string | null = null;
 
 function makeId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -90,6 +91,7 @@ export function parseSavedState(snapshot: string): SavedState {
 }
 
 export function getStudySnapshot() {
+  if (volatileSnapshot !== null) return volatileSnapshot;
   if (typeof window === "undefined") return DEFAULT_SNAPSHOT;
   try {
     return localStorage.getItem(STORAGE_KEY) || DEFAULT_SNAPSHOT;
@@ -118,9 +120,17 @@ export function subscribeToStudyState(callback: () => void) {
 export function updateStudyState(update: (current: SavedState) => SavedState) {
   try {
     const next = update(parseSavedState(getStudySnapshot()));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    const snapshot = JSON.stringify(next);
+    let persisted = true;
+    try {
+      localStorage.setItem(STORAGE_KEY, snapshot);
+      volatileSnapshot = null;
+    } catch {
+      volatileSnapshot = snapshot;
+      persisted = false;
+    }
     subscribers.forEach((callback) => callback());
-    return true;
+    return persisted;
   } catch {
     return false;
   }

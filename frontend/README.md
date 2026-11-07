@@ -17,7 +17,10 @@ Open <http://localhost:3000>.
 
 ```sh
 npm run lint
+npm run typecheck
 npm run build
 ```
 
 `next build` creates the static site in `out/`. Browser state is stored locally; no API URL or secret is required.
+
+GitHub Actions runs lint, type checks, dependency audit, and the static build for pushes and pull requests.
