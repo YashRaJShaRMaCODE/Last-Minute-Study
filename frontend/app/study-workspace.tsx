@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from "react";
 import { getServerStudySnapshot, getStudySnapshot, parseSavedState, subscribeToStudyState, updateStudyState } from "./study-state";
 
 const COLORS = ["#584be1", "#e77953", "#258c76", "#bc5b90", "#397db4"];
@@ -28,28 +28,40 @@ export default function StudyWorkspace() {
   const [message, setMessage] = useState("");
   const timerInterval = useRef<number | null>(null);
   const secondsRef = useRef(seconds);
+  const deadlineRef = useRef<number | null>(null);
+
+  const completeFocusSession = useCallback(() => {
+    if (deadlineRef.current === null) return;
+    if (timerInterval.current !== null) window.clearInterval(timerInterval.current);
+    timerInterval.current = null;
+    deadlineRef.current = null;
+    secondsRef.current = 0;
+    setSeconds(0);
+    setTimerRunning(false);
+    updateStudyState((currentState) => ({ ...currentState, focusSessions: currentState.focusSessions + 1 }));
+    setMessage("Focus session complete. Take a short break before the next one.");
+  }, []);
 
   useEffect(() => {
     if (!timerRunning) return;
-    timerInterval.current = window.setInterval(() => {
-      if (secondsRef.current <= 1) {
-        if (timerInterval.current !== null) window.clearInterval(timerInterval.current);
-        timerInterval.current = null;
-        secondsRef.current = 0;
-        setSeconds(0);
-        setTimerRunning(false);
-        updateStudyState((currentState) => ({ ...currentState, focusSessions: currentState.focusSessions + 1 }));
-        setMessage("Focus session complete. Take a short break before the next one.");
-        return;
-      }
-      secondsRef.current -= 1;
-      setSeconds(secondsRef.current);
-    }, 1000);
+    deadlineRef.current ??= Date.now() + secondsRef.current * 1000;
+    const tick = () => {
+      const deadline = deadlineRef.current;
+      if (deadline === null) return;
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      secondsRef.current = remaining;
+      setSeconds(remaining);
+      if (remaining === 0) completeFocusSession();
+    };
+    tick();
+    timerInterval.current = window.setInterval(tick, 1000);
+    document.addEventListener("visibilitychange", tick);
     return () => {
       if (timerInterval.current !== null) window.clearInterval(timerInterval.current);
       timerInterval.current = null;
+      document.removeEventListener("visibilitychange", tick);
     };
-  }, [timerRunning]);
+  }, [timerRunning, completeFocusSession]);
 
   const totalTopics = subjects.reduce((total, subject) => total + subject.topics.length, 0);
   const finishedTopics = subjects.reduce((total, subject) => total + subject.topics.filter((topic) => topic.done).length, 0);
@@ -105,23 +117,41 @@ export default function StudyWorkspace() {
 
   const clearWorkspace = () => {
     if (!window.confirm("Clear your subjects, topics, notes, exam date, and focus count from this browser?")) return;
+    deadlineRef.current = null;
+    secondsRef.current = 25 * 60;
+    setSeconds(25 * 60);
+    setTimerRunning(false);
     updateStudyState(() => ({ subjects: [], examDate: "", focusSessions: 0 }));
     setSelectedNote("");
     setMessage("Workspace cleared on this device.");
   };
 
   const resetTimer = () => {
+    deadlineRef.current = null;
     setTimerRunning(false);
     secondsRef.current = 25 * 60;
     setSeconds(25 * 60);
   };
 
   const toggleTimer = () => {
-    if (!timerRunning && secondsRef.current === 0) {
+    if (timerRunning) {
+      const remaining = Math.max(0, Math.ceil(((deadlineRef.current ?? Date.now()) - Date.now()) / 1000));
+      if (remaining === 0) {
+        completeFocusSession();
+        return;
+      }
+      deadlineRef.current = null;
+      secondsRef.current = remaining;
+      setSeconds(remaining);
+      setTimerRunning(false);
+      return;
+    }
+    if (secondsRef.current === 0) {
       secondsRef.current = 25 * 60;
       setSeconds(25 * 60);
     }
-    setTimerRunning((running) => !running);
+    deadlineRef.current = Date.now() + secondsRef.current * 1000;
+    setTimerRunning(true);
   };
 
   const setExamDate = (value: string) => {
