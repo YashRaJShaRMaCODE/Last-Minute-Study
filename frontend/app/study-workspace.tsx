@@ -72,7 +72,7 @@ export default function StudyWorkspace() {
 
   const totalTopics = subjects.reduce((total, subject) => total + subject.topics.length, 0);
   const finishedTopics = subjects.reduce((total, subject) => total + subject.topics.filter((topic) => topic.done).length, 0);
-  const nextTopic = subjects.flatMap((subject) => subject.topics.filter((topic) => !topic.done).map((topic) => ({ ...topic, subject: subject.name, color: subject.color })))[0];
+  const nextTopic = subjects.flatMap((subject) => subject.topics.filter((topic) => !topic.done).map((topic) => ({ ...topic, subjectId: subject.id, subject: subject.name, color: subject.color })))[0];
   const daysUntilExam = useMemo(() => {
     if (!examDate) return null;
     const exam = new Date(`${examDate}T00:00:00`);
@@ -269,7 +269,7 @@ export default function StudyWorkspace() {
               <p className="next-subject" style={{ "--subject-color": nextTopic.color } as CSSProperties}>{nextTopic.subject}</p>
               <h3>{nextTopic.title}</h3>
               <p className="next-copy">Give this one your attention. The rest of the list can wait.</p>
-              <div className="next-footer"><span>◷ &nbsp;{nextTopic.minutes} min</span><button type="button" className="text-action" onClick={() => { const found = subjects.find((subject) => subject.name === nextTopic.subject); if (found) toggleTopic(found.id, nextTopic.id); }}>Mark done <span aria-hidden="true">↗</span></button></div>
+              <div className="next-footer"><span>◷ &nbsp;{nextTopic.minutes} min</span><button type="button" className="text-action" onClick={() => toggleTopic(nextTopic.subjectId, nextTopic.id)}>Mark done <span aria-hidden="true">↗</span></button></div>
             </> : <div className="all-done"><h3>Nothing urgent on the list.</h3><p>Add one small topic under Subjects when you are ready.</p><a href="#subjects">Open your subjects ↗</a></div>}
           </article>
           <article className="focus-card" aria-labelledby="timer-title">
