@@ -72,6 +72,7 @@ export default function StudyWorkspace() {
 
   const totalTopics = subjects.reduce((total, subject) => total + subject.topics.length, 0);
   const finishedTopics = subjects.reduce((total, subject) => total + subject.topics.filter((topic) => topic.done).length, 0);
+  const remainingMinutes = subjects.reduce((total, subject) => total + subject.topics.reduce((minutes, topic) => minutes + (topic.done ? 0 : topic.minutes), 0), 0);
   const nextTopic = subjects.flatMap((subject) => subject.topics.filter((topic) => !topic.done).map((topic) => ({ ...topic, subjectId: subject.id, subject: subject.name, color: subject.color })))[0];
   const daysUntilExam = useMemo(() => {
     if (!examDate) return null;
@@ -252,7 +253,7 @@ export default function StudyWorkspace() {
 
       <section className="overview-strip" aria-label="Revision overview">
         <div className="overview-intro"><span className="section-kicker">YOUR BOARD / TODAY</span><p>Keep it light.<br /><strong>Keep it moving.</strong></p></div>
-        <div className="overview-stat"><span>TOPICS DONE</span><strong>{finishedTopics}<small>/{totalTopics}</small></strong><p>one at a time</p></div>
+        <div className="overview-stat"><span>TOPICS DONE</span><strong>{finishedTopics}<small>/{totalTopics}</small></strong><p>{remainingMinutes.toLocaleString()} min left across subjects</p></div>
         <div className="overview-stat"><span>FOCUS SESSIONS</span><strong>{focusSessions.toString().padStart(2, "0")}</strong><p>completed here</p></div>
         <label className="exam-stat"><span>EXAM COUNTDOWN</span><strong>{daysUntilExam === null ? "—" : daysUntilExam.toString().padStart(2, "0")}<small>{daysUntilExam === null ? "set date" : daysUntilExam === 1 ? "day left" : "days left"}</small></strong><input aria-label="Set exam date" type="date" value={examDate} onChange={(event) => setExamDate(event.target.value)} /></label>
       </section>
@@ -294,11 +295,12 @@ export default function StudyWorkspace() {
             {visibleSubjects.map((subject, index) => {
               const done = subject.topics.filter((topic) => topic.done).length;
               const progress = subject.topics.length ? Math.round((done / subject.topics.length) * 100) : 0;
+              const minutesLeft = subject.topics.reduce((total, topic) => total + (topic.done ? 0 : topic.minutes), 0);
               return <article className="subject-card" key={subject.id} style={{ "--subject-color": subject.color } as CSSProperties}>
                 <div className="subject-top"><span className="subject-index">0{index + 1}</span><button className="notes-link" type="button" onClick={() => { setSelectedNote(subject.id); document.getElementById("notes")?.scrollIntoView({ behavior: "smooth" }); }}>Quick notes ↗</button></div>
                 <h3>{subject.name}</h3>
                 <div className="progress-line" aria-label={`${progress}% complete`}><span style={{ width: `${progress}%` }} /></div>
-                <p className="progress-copy">{done} of {subject.topics.length} topics checked off</p>
+                <p className="progress-copy">{done} of {subject.topics.length} topics checked off · {minutesLeft} min left</p>
                 {subject.topics.length ? <ul className="topic-list">{subject.topics.map((topic) => <li key={topic.id} className={topic.done ? "topic-done" : ""}>
                   <button type="button" className="topic-check" aria-label={`${topic.done ? "Reopen" : "Complete"} ${topic.title}`} aria-pressed={topic.done} onClick={() => toggleTopic(subject.id, topic.id)}>{topic.done ? "✓" : ""}</button><span>{topic.title}</span><small>{topic.minutes}m</small>
                 </li>)}</ul> : <p className="empty-topics">Start with one topic you can finish in a sitting.</p>}
