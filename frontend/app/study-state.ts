@@ -43,6 +43,15 @@ export const DEFAULT_STATE: SavedState = {
   focusSessions: 0,
 };
 
+function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  if (year < 1) return false;
+  const date = new Date(0);
+  date.setFullYear(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
 const DEFAULT_SNAPSHOT = JSON.stringify(DEFAULT_STATE);
 const subscribers = new Set<() => void>();
 const COLORS_BY_INDEX = (index: number) => COLORS[index % COLORS.length];
@@ -77,9 +86,7 @@ export function parseSavedState(snapshot: string): SavedState {
             : [],
         ),
       }));
-    const examDate = typeof parsed.examDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.examDate)
-      ? parsed.examDate
-      : "";
+    const examDate = isCalendarDate(parsed.examDate) ? parsed.examDate : "";
     return {
       subjects,
       examDate,
