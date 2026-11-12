@@ -120,6 +120,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .timer-face { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; padding: 17px 0 13px; }
 .timer-face > span { color: #282449; font: 600 clamp(44px, 5vw, 62px)/1 var(--mono); letter-spacing: -.1em; font-variant-numeric: tabular-nums; }
 .timer-face small { margin-top: 8px; color: #77729f; font: 8px var(--mono); letter-spacing: .12em; }
+.timer-topic { max-width: 100%; overflow: hidden; margin: 7px 0 0; color: #625e82; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .timer-actions { display: flex; align-items: center; justify-content: center; gap: 15px; }
 .timer-toggle { min-height: 42px; background: var(--accent); color: white; }
 .timer-toggle:hover:not(:disabled) { background: var(--accent-dark); }
@@ -149,12 +150,14 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .progress-line span { display: block; height: 100%; border-radius: inherit; background: var(--subject-color); transition: width .25s ease; }
 .progress-copy { margin: 7px 0 9px; color: #7c8292; font-size: 8px; }
 .topic-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.topic-list li { display: grid; min-height: 39px; grid-template-columns: 21px minmax(0,1fr) auto; align-items: center; gap: 7px; border-top: 1px solid #f0f1f5; color: #454b5d; font-size: 9px; }
+.topic-list li { display: grid; min-height: 39px; grid-template-columns: 21px minmax(0,1fr) auto auto; align-items: center; gap: 7px; border-top: 1px solid #f0f1f5; color: #454b5d; font-size: 9px; }
 .topic-list li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topic-list li small { color: #8b90a0; font: 8px var(--mono); }
 .topic-done > span { color: #9a9eaa; text-decoration: line-through; }
 .topic-check { display: grid; width: 21px; height: 21px; place-items: center; border: 1px solid #cfd4e0; border-radius: 6px; background: white; color: white; font-size: 12px; }
 .topic-check[aria-pressed="true"] { border-color: var(--subject-color); background: var(--subject-color); }
+.focus-topic { min-height: 28px; padding: 0 2px; border: 0; background: transparent; color: var(--accent); font-size: 8px; font-weight: 750; }
+.focus-topic:disabled { color: #9296a3; }
 .empty-topics { margin: 8px 0; color: #858b9a; font-size: 9px; line-height: 1.55; }
 .add-topic { display: flex; align-items: center; gap: 5px; margin-top: auto; padding-top: 8px; border-top: 1px solid #edf0f5; }
 .add-topic input { min-height: 35px; font-size: 9px; }

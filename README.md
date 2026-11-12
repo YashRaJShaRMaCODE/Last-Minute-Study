@@ -12,6 +12,7 @@
 - See the estimated minutes left for each subject and across the whole plan.
 - Set a realistic daily study target from unfinished minutes and your exam date; it recalculates as you finish topics and rolls over at local midnight.
 - Use the 25-minute focus timer, pause it, resume it, or reset it. Its clock stays accurate when a browser tab is in the background.
+- Start a 25-minute focus session directly from any unfinished topic; the timer shows the selected topic and never marks it complete automatically.
 - Keep a short note for each subject.
 - Continue where you left off: subjects, progress, exam date, focus count, and notes are saved in this browser.
 - Download a versioned JSON backup or restore it on another browser; the file stays on your device until you choose where to save it.

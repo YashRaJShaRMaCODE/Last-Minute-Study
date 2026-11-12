@@ -6,6 +6,7 @@ import { getServerStudySnapshot, getStudySnapshot, parseSavedState, subscribeToS
 const COLORS = ["#584be1", "#e77953", "#258c76", "#bc5b90", "#397db4"];
 const STORAGE_WARNING = "Storage is unavailable. Changes stay here until this page reloads or closes.";
 const BACKUP_FORMAT = "last-minute-study-backup";
+type FocusTarget = { subject: string; title: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -31,11 +32,13 @@ export default function StudyWorkspace() {
   const [newSubject, setNewSubject] = useState("");
   const [seconds, setSeconds] = useState(25 * 60);
   const [timerRunning, setTimerRunning] = useState(false);
+  const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
   const [message, setMessage] = useState("");
   const [today, setToday] = useState<number | null>(null);
   const timerInterval = useRef<number | null>(null);
   const secondsRef = useRef(seconds);
   const deadlineRef = useRef<number | null>(null);
+  const focusTargetRef = useRef<FocusTarget | null>(null);
   const backupInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -62,14 +65,19 @@ export default function StudyWorkspace() {
 
   const completeFocusSession = useCallback(() => {
     if (deadlineRef.current === null) return;
+    const completedTarget = focusTargetRef.current;
     if (timerInterval.current !== null) window.clearInterval(timerInterval.current);
     timerInterval.current = null;
     deadlineRef.current = null;
     secondsRef.current = 0;
     setSeconds(0);
     setTimerRunning(false);
+    focusTargetRef.current = null;
+    setFocusTarget(null);
     updateStudyState((currentState) => ({ ...currentState, focusSessions: currentState.focusSessions + 1 }));
-    setMessage("Focus session complete. Take a short break before the next one.");
+    setMessage(completedTarget
+      ? `Focus session complete for ${completedTarget.title}. Mark it done when you're ready.`
+      : "Focus session complete. Take a short break before the next one.");
   }, []);
 
   useEffect(() => {
@@ -156,6 +164,8 @@ export default function StudyWorkspace() {
   const clearWorkspace = () => {
     if (!window.confirm("Clear your subjects, topics, notes, exam date, and focus count from this browser?")) return;
     deadlineRef.current = null;
+    focusTargetRef.current = null;
+    setFocusTarget(null);
     secondsRef.current = 25 * 60;
     setSeconds(25 * 60);
     setTimerRunning(false);
@@ -200,6 +210,8 @@ export default function StudyWorkspace() {
 
     const restored = parseSavedState(JSON.stringify(candidate.state));
     deadlineRef.current = null;
+    focusTargetRef.current = null;
+    setFocusTarget(null);
     secondsRef.current = 25 * 60;
     setSeconds(25 * 60);
     setTimerRunning(false);
@@ -210,6 +222,8 @@ export default function StudyWorkspace() {
 
   const resetTimer = () => {
     deadlineRef.current = null;
+    focusTargetRef.current = null;
+    setFocusTarget(null);
     setTimerRunning(false);
     secondsRef.current = 25 * 60;
     setSeconds(25 * 60);
@@ -232,8 +246,29 @@ export default function StudyWorkspace() {
       secondsRef.current = 25 * 60;
       setSeconds(25 * 60);
     }
+    if (!focusTargetRef.current && nextTopic) {
+      const target = { subject: nextTopic.subject, title: nextTopic.title };
+      focusTargetRef.current = target;
+      setFocusTarget(target);
+    }
     deadlineRef.current = Date.now() + secondsRef.current * 1000;
     setTimerRunning(true);
+  };
+
+  const startTopicFocus = (subject: string, title: string) => {
+    if (timerRunning) return;
+    const target = { subject, title };
+    focusTargetRef.current = target;
+    setFocusTarget(target);
+    secondsRef.current = 25 * 60;
+    setSeconds(25 * 60);
+    deadlineRef.current = Date.now() + 25 * 60 * 1000;
+    setTimerRunning(true);
+    setMessage(`25-minute focus session started for ${title}.`);
+    document.getElementById("focus-timer")?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "center",
+    });
   };
 
   const setExamDate = (value: string) => {
@@ -299,9 +334,9 @@ export default function StudyWorkspace() {
               <div className="next-footer"><span>◷ &nbsp;{nextTopic.minutes} min</span><button type="button" className="text-action" onClick={() => toggleTopic(nextTopic.subjectId, nextTopic.id)}>Mark done <span aria-hidden="true">↗</span></button></div>
             </> : <div className="all-done"><h3>Nothing urgent on the list.</h3><p>Add one small topic under Subjects when you are ready.</p><a href="#subjects">Open your subjects ↗</a></div>}
           </article>
-          <article className="focus-card" aria-labelledby="timer-title">
+          <article className="focus-card" id="focus-timer" aria-labelledby="timer-title">
             <div className="card-topline"><span className="mini-index">02</span><span id="timer-title">A QUIET 25</span><span className="card-line" /></div>
-            <div className="timer-face" aria-live="off"><span>{formatTime(seconds)}</span><small>{timerRunning ? "FOCUSING" : seconds === 25 * 60 ? "READY WHEN YOU ARE" : "PAUSED"}</small></div>
+            <div className="timer-face" aria-live="off"><span>{formatTime(seconds)}</span><small>{timerRunning ? "FOCUSING" : focusTarget ? "PAUSED" : seconds === 25 * 60 ? "READY WHEN YOU ARE" : "PAUSED"}</small><p className="timer-topic">{focusTarget ? `${focusTarget.subject} · ${focusTarget.title}` : "Choose one topic or begin a focus block."}</p></div>
             <div className="timer-actions"><button type="button" className="button button-primary timer-toggle" onClick={toggleTimer}>{timerRunning ? "Pause session" : seconds === 25 * 60 ? "Start session" : "Resume session"}<span aria-hidden="true">{timerRunning ? "Ⅱ" : "↗"}</span></button><button type="button" className="reset-button" onClick={resetTimer} aria-label="Reset focus timer">Reset</button></div>
             <p className="timer-hint">Take one topic in. Leave the rest outside.</p>
           </article>
@@ -328,7 +363,7 @@ export default function StudyWorkspace() {
                 <div className="progress-line" aria-label={`${progress}% complete`}><span style={{ width: `${progress}%` }} /></div>
                 <p className="progress-copy">{done} of {subject.topics.length} topics checked off · {minutesLeft} min left</p>
                 {subject.topics.length ? <ul className="topic-list">{subject.topics.map((topic) => <li key={topic.id} className={topic.done ? "topic-done" : ""}>
-                  <button type="button" className="topic-check" aria-label={`${topic.done ? "Reopen" : "Complete"} ${topic.title}`} aria-pressed={topic.done} onClick={() => toggleTopic(subject.id, topic.id)}>{topic.done ? "✓" : ""}</button><span>{topic.title}</span><small>{topic.minutes}m</small>
+                  <button type="button" className="topic-check" aria-label={`${topic.done ? "Reopen" : "Complete"} ${topic.title}`} aria-pressed={topic.done} onClick={() => toggleTopic(subject.id, topic.id)}>{topic.done ? "✓" : ""}</button><span>{topic.title}</span><small>{topic.minutes}m</small>{!topic.done && <button type="button" className="focus-topic" aria-label={`Start a 25-minute focus session for ${topic.title}`} disabled={timerRunning} onClick={() => startTopicFocus(subject.name, topic.title)}>Focus</button>}
                 </li>)}</ul> : <p className="empty-topics">Start with one topic you can finish in a sitting.</p>}
                 <form className="add-topic" onSubmit={(event) => addTopic(event, subject.id)}><label className="sr-only" htmlFor={`topic-${subject.id}`}>Add topic to {subject.name}</label><input id={`topic-${subject.id}`} value={topicDrafts[subject.id] || ""} onChange={(event) => setTopicDrafts((current) => ({ ...current, [subject.id]: event.target.value }))} placeholder="Add a 25-minute topic…" maxLength={100} disabled={subject.topics.length >= 40} /><button type="submit" aria-label={`Add topic to ${subject.name}`} disabled={!topicDrafts[subject.id]?.trim() || subject.topics.length >= 40}>+</button></form>
               </article>;
