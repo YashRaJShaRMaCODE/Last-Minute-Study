@@ -8,6 +8,7 @@
 
 - Set an exam date and see a live day countdown.
 - Add up to 12 subjects, search by subject or topic, and build each list from small revision sessions.
+- Set each new topic's estimate from 5 to 120 minutes; its focus timer uses that same estimate.
 - Check off topics and see progress update immediately.
 - See the estimated minutes left for each subject and across the whole plan.
 - Set a realistic daily study target from unfinished minutes and your exam date; it recalculates as you finish topics and rolls over at local midnight.

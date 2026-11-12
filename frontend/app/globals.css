@@ -161,6 +161,9 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .empty-topics { margin: 8px 0; color: #858b9a; font-size: 9px; line-height: 1.55; }
 .add-topic { display: flex; align-items: center; gap: 5px; margin-top: auto; padding-top: 8px; border-top: 1px solid #edf0f5; }
 .add-topic input { min-height: 35px; font-size: 9px; }
+.add-topic > input:first-of-type { flex: 1; }
+.add-topic .topic-minutes-input { width: 44px; flex: 0 0 44px; padding: 0 3px; border-bottom: 1px solid #d9deea; text-align: center; font-variant-numeric: tabular-nums; }
+.topic-minutes-unit { color: #858b9a; font-size: 8px; }
 .add-topic button { width: 34px; height: 34px; flex: 0 0 auto; border: 1px solid #e1e4ee; border-radius: 7px; background: #f7f7fc; color: var(--accent); font-size: 19px; }
 .add-topic button:hover:not(:disabled) { border-color: #c9c4fa; background: var(--accent-soft); }
 .empty-search { grid-column: 1/-1; padding: 29px; border: 1px dashed #cfd4e2; border-radius: 9px; text-align: center; }
