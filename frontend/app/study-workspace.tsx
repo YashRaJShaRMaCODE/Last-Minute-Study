@@ -32,10 +32,33 @@ export default function StudyWorkspace() {
   const [seconds, setSeconds] = useState(25 * 60);
   const [timerRunning, setTimerRunning] = useState(false);
   const [message, setMessage] = useState("");
+  const [today, setToday] = useState<number | null>(null);
   const timerInterval = useRef<number | null>(null);
   const secondsRef = useRef(seconds);
   const deadlineRef = useRef<number | null>(null);
   const backupInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let timeout = 0;
+    const refreshToday = () => {
+      const now = new Date();
+      setToday(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime());
+      window.clearTimeout(timeout);
+      const nextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      timeout = window.setTimeout(refreshToday, nextDay.getTime() - now.getTime() + 50);
+    };
+    const refreshWhenActive = () => {
+      if (document.visibilityState === "visible") refreshToday();
+    };
+    refreshToday();
+    window.addEventListener("focus", refreshToday);
+    document.addEventListener("visibilitychange", refreshWhenActive);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("focus", refreshToday);
+      document.removeEventListener("visibilitychange", refreshWhenActive);
+    };
+  }, []);
 
   const completeFocusSession = useCallback(() => {
     if (deadlineRef.current === null) return;
@@ -75,11 +98,14 @@ export default function StudyWorkspace() {
   const remainingMinutes = subjects.reduce((total, subject) => total + subject.topics.reduce((minutes, topic) => minutes + (topic.done ? 0 : topic.minutes), 0), 0);
   const nextTopic = subjects.flatMap((subject) => subject.topics.filter((topic) => !topic.done).map((topic) => ({ ...topic, subjectId: subject.id, subject: subject.name, color: subject.color })))[0];
   const daysUntilExam = useMemo(() => {
-    if (!examDate) return null;
+    if (!examDate || today === null) return null;
     const exam = new Date(`${examDate}T00:00:00`);
     if (Number.isNaN(exam.getTime())) return null;
-    return Math.max(0, Math.ceil((exam.getTime() - new Date().setHours(0, 0, 0, 0)) / 86_400_000));
-  }, [examDate]);
+    return Math.max(0, Math.ceil((exam.getTime() - today) / 86_400_000));
+  }, [examDate, today]);
+  const dailyTarget = daysUntilExam !== null && daysUntilExam > 0
+    ? Math.ceil(remainingMinutes / daysUntilExam)
+    : null;
   const visibleSubjects = subjects.filter((subject) =>
     `${subject.name} ${subject.topics.map((topic) => topic.title).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
@@ -252,7 +278,7 @@ export default function StudyWorkspace() {
       </section>
 
       <section className="overview-strip" aria-label="Revision overview">
-        <div className="overview-intro"><span className="section-kicker">YOUR BOARD / TODAY</span><p>Keep it light.<br /><strong>Keep it moving.</strong></p></div>
+        <div className="overview-intro"><span className="section-kicker">YOUR BOARD / TODAY</span><p>Keep it light.<br /><strong>Keep it moving.</strong></p><span className="study-pace" aria-live="polite">{remainingMinutes === 0 ? "Your revision list is complete." : daysUntilExam === null ? "Set a date for your daily pace." : daysUntilExam === 0 ? "Exam day · choose a short review." : `About ${dailyTarget} min/day to finish before the exam.`}</span></div>
         <div className="overview-stat"><span>TOPICS DONE</span><strong>{finishedTopics}<small>/{totalTopics}</small></strong><p>{remainingMinutes.toLocaleString()} min left across subjects</p></div>
         <div className="overview-stat"><span>FOCUS SESSIONS</span><strong>{focusSessions.toString().padStart(2, "0")}</strong><p>completed here</p></div>
         <label className="exam-stat"><span>EXAM COUNTDOWN</span><strong>{daysUntilExam === null ? "—" : daysUntilExam.toString().padStart(2, "0")}<small>{daysUntilExam === null ? "set date" : daysUntilExam === 1 ? "day left" : "days left"}</small></strong><input aria-label="Set exam date" type="date" value={examDate} onChange={(event) => setExamDate(event.target.value)} /></label>
