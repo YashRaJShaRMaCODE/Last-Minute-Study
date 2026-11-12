@@ -52,6 +52,15 @@ function isCalendarDate(value: unknown): value is string {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
+export function calendarDaysUntil(examDate: string, today: number) {
+  if (!isCalendarDate(examDate) || !Number.isFinite(today)) return null;
+  const [year, month, day] = examDate.split("-").map(Number);
+  const current = new Date(today);
+  const examDay = Date.UTC(year, month - 1, day);
+  const currentDay = Date.UTC(current.getFullYear(), current.getMonth(), current.getDate());
+  return Math.max(0, Math.round((examDay - currentDay) / 86_400_000));
+}
+
 const DEFAULT_SNAPSHOT = JSON.stringify(DEFAULT_STATE);
 const subscribers = new Set<() => void>();
 const COLORS_BY_INDEX = (index: number) => COLORS[index % COLORS.length];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
-import { getServerStudySnapshot, getStudySnapshot, parseSavedState, subscribeToStudyState, updateStudyState } from "./study-state";
+import { calendarDaysUntil, getServerStudySnapshot, getStudySnapshot, parseSavedState, subscribeToStudyState, updateStudyState } from "./study-state";
 
 const COLORS = ["#584be1", "#e77953", "#258c76", "#bc5b90", "#397db4"];
 const STORAGE_WARNING = "Storage is unavailable. Changes stay here until this page reloads or closes.";
@@ -108,9 +108,7 @@ export default function StudyWorkspace() {
   const nextTopic = subjects.flatMap((subject) => subject.topics.filter((topic) => !topic.done).map((topic) => ({ ...topic, subjectId: subject.id, subject: subject.name, color: subject.color })))[0];
   const daysUntilExam = useMemo(() => {
     if (!examDate || today === null) return null;
-    const exam = new Date(`${examDate}T00:00:00`);
-    if (Number.isNaN(exam.getTime())) return null;
-    return Math.max(0, Math.ceil((exam.getTime() - today) / 86_400_000));
+    return calendarDaysUntil(examDate, today);
   }, [examDate, today]);
   const dailyTarget = daysUntilExam !== null && daysUntilExam > 0
     ? Math.ceil(remainingMinutes / daysUntilExam)
