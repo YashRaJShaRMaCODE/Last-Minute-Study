@@ -1,6 +1,7 @@
-export type Topic = { id: string; title: string; minutes: number; done: boolean };
+export type TopicPriority = "high" | "medium" | "low";
+export type Topic = { id: string; title: string; minutes: number; done: boolean; priority: TopicPriority };
 export type Subject = { id: string; name: string; color: string; topics: Topic[]; note: string };
-export type SavedState = { subjects: Subject[]; examDate: string; focusSessions: number };
+export type SavedState = { subjects: Subject[]; examDate: string; focusSessions: number; studyDays: string[] };
 
 const STORAGE_KEY = "last-minute-study.v1";
 const COLORS = ["#584be1", "#e77953", "#258c76", "#bc5b90", "#397db4"];
@@ -12,9 +13,9 @@ export const DEFAULT_STATE: SavedState = {
       name: "Biology",
       color: COLORS[0],
       topics: [
-        { id: "cell-energy", title: "Cell energy & respiration", minutes: 25, done: false },
-        { id: "genetics", title: "Genetics: key patterns", minutes: 20, done: false },
-        { id: "ecology", title: "Ecology diagrams", minutes: 15, done: true },
+        { id: "cell-energy", title: "Cell energy & respiration", minutes: 25, done: false, priority: "medium" },
+        { id: "genetics", title: "Genetics: key patterns", minutes: 20, done: false, priority: "medium" },
+        { id: "ecology", title: "Ecology diagrams", minutes: 15, done: true, priority: "medium" },
       ],
       note: "",
     },
@@ -23,8 +24,8 @@ export const DEFAULT_STATE: SavedState = {
       name: "Economics",
       color: COLORS[1],
       topics: [
-        { id: "elasticity", title: "Price elasticity examples", minutes: 20, done: false },
-        { id: "market-failure", title: "Market failure: 3 causes", minutes: 25, done: false },
+        { id: "elasticity", title: "Price elasticity examples", minutes: 20, done: false, priority: "medium" },
+        { id: "market-failure", title: "Market failure: 3 causes", minutes: 25, done: false, priority: "medium" },
       ],
       note: "",
     },
@@ -33,14 +34,15 @@ export const DEFAULT_STATE: SavedState = {
       name: "Mathematics",
       color: COLORS[2],
       topics: [
-        { id: "integration", title: "Integration practice set", minutes: 30, done: false },
-        { id: "probability", title: "Conditional probability", minutes: 20, done: false },
+        { id: "integration", title: "Integration practice set", minutes: 30, done: false, priority: "medium" },
+        { id: "probability", title: "Conditional probability", minutes: 20, done: false, priority: "medium" },
       ],
       note: "",
     },
   ],
   examDate: "",
   focusSessions: 0,
+  studyDays: [],
 };
 
 function isCalendarDate(value: unknown): value is string {
@@ -59,6 +61,66 @@ export function calendarDaysUntil(examDate: string, today: number) {
   const examDay = Date.UTC(year, month - 1, day);
   const currentDay = Date.UTC(current.getFullYear(), current.getMonth(), current.getDate());
   return Math.max(0, Math.round((examDay - currentDay) / 86_400_000));
+}
+
+const priorities: TopicPriority[] = ["high", "medium", "low"];
+
+export function buildDailyPlan(subjects: Subject[], dailyBudget: number) {
+  const rank: Record<TopicPriority, number> = { high: 0, medium: 1, low: 2 };
+  const candidates = subjects.flatMap((subject) => subject.topics
+    .filter((topic) => !topic.done)
+    .map((topic) => ({ ...topic, subject: subject.name, subjectId: subject.id, color: subject.color })));
+  candidates.sort((a, b) => rank[a.priority] - rank[b.priority]);
+  const plan: typeof candidates = [];
+  let minutes = 0;
+  for (const topic of candidates) {
+    if (plan.length >= 6) break;
+    if (minutes + topic.minutes > dailyBudget) continue;
+    plan.push(topic);
+    minutes += topic.minutes;
+    if (minutes >= dailyBudget) break;
+  }
+  if (!plan.length && candidates[0]) plan.push(candidates[0]);
+  return plan;
+}
+
+export function localDateKey(timestamp: number) {
+  const date = new Date(timestamp);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export function recordFocusSession(state: SavedState, date: string): SavedState {
+  if (!isCalendarDate(date)) return state;
+  return {
+    ...state,
+    focusSessions: state.focusSessions + 1,
+    studyDays: [...new Set([...state.studyDays, date])].sort().slice(-120),
+  };
+}
+
+export function currentStudyStreak(studyDays: string[], today: number) {
+  const completed = new Set(studyDays);
+  const cursor = new Date(today);
+  cursor.setHours(12, 0, 0, 0);
+  if (!completed.has(localDateKey(cursor.getTime()))) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  while (completed.has(localDateKey(cursor.getTime()))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+export function recentStudyWeek(studyDays: string[], today: number) {
+  const completed = new Set(studyDays);
+  const end = new Date(today);
+  end.setHours(12, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(end);
+    date.setDate(end.getDate() - 6 + index);
+    const key = localDateKey(date.getTime());
+    return { key, label: date.toLocaleDateString("en", { weekday: "short" }), studied: completed.has(key) };
+  });
 }
 
 const DEFAULT_SNAPSHOT = JSON.stringify(DEFAULT_STATE);
@@ -91,6 +153,7 @@ export function parseSavedState(snapshot: string): SavedState {
                 title: topic.title.slice(0, 100),
                 minutes: Math.min(120, Math.max(5, Number(topic.minutes) || 25)),
                 done: Boolean(topic.done),
+                priority: priorities.includes(topic.priority) ? topic.priority : "medium",
               }]
             : [],
         ),
@@ -100,6 +163,7 @@ export function parseSavedState(snapshot: string): SavedState {
       subjects,
       examDate,
       focusSessions: Math.max(0, Math.floor(Number(parsed.focusSessions) || 0)),
+      studyDays: Array.isArray(parsed.studyDays) ? [...new Set(parsed.studyDays.filter(isCalendarDate))].sort().slice(-120) : [],
     };
   } catch {
     return DEFAULT_STATE;

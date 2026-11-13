@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
-import { calendarDaysUntil, getServerStudySnapshot, getStudySnapshot, parseSavedState, subscribeToStudyState, updateStudyState } from "./study-state";
+import { buildDailyPlan, calendarDaysUntil, currentStudyStreak, getServerStudySnapshot, getStudySnapshot, localDateKey, parseSavedState, recentStudyWeek, recordFocusSession, subscribeToStudyState, updateStudyState } from "./study-state";
 
 const COLORS = ["#584be1", "#e77953", "#258c76", "#bc5b90", "#397db4"];
 const STORAGE_WARNING = "Storage is unavailable. Changes stay here until this page reloads or closes.";
@@ -16,6 +16,10 @@ function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function currentTimestamp() {
+  return Date.now();
 }
 
 function formatTime(seconds: number) {
@@ -75,7 +79,7 @@ export default function StudyWorkspace() {
     setTimerRunning(false);
     focusTargetRef.current = null;
     setFocusTarget(null);
-    updateStudyState((currentState) => ({ ...currentState, focusSessions: currentState.focusSessions + 1 }));
+    updateStudyState((currentState) => recordFocusSession(currentState, localDateKey(Date.now())));
     setMessage(completedTarget
       ? `Focus session complete for ${completedTarget.title}. Mark it done when you're ready.`
       : "Focus session complete. Take a short break before the next one.");
@@ -113,6 +117,11 @@ export default function StudyWorkspace() {
   const dailyTarget = daysUntilExam !== null && daysUntilExam > 0
     ? Math.ceil(remainingMinutes / daysUntilExam)
     : null;
+  const dailyBudget = dailyTarget ?? 25;
+  const dailyPlan = buildDailyPlan(subjects, dailyBudget);
+  const plannedMinutes = dailyPlan.reduce((total, topic) => total + topic.minutes, 0);
+  const studyStreak = today === null ? 0 : currentStudyStreak(saved.studyDays, today);
+  const studyWeek = today === null ? [] : recentStudyWeek(saved.studyDays, today);
   const visibleSubjects = subjects.filter((subject) =>
     `${subject.name} ${subject.topics.map((topic) => topic.title).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
@@ -148,7 +157,7 @@ export default function StudyWorkspace() {
       return;
     }
     const saved = updateSubjects((current) => current.map((subject) => subject.id === subjectId
-      ? { ...subject, topics: [...subject.topics, { id: newId(), title, minutes, done: false }].slice(0, 40) }
+      ? { ...subject, topics: [...subject.topics, { id: newId(), title, minutes, done: false, priority: "medium" as const }].slice(0, 40) }
       : subject));
     setTopicDrafts((current) => ({ ...current, [subjectId]: "" }));
     setTopicMinuteDrafts((current) => ({ ...current, [subjectId]: "25" }));
@@ -160,6 +169,12 @@ export default function StudyWorkspace() {
       ? { ...subject, topics: subject.topics.map((topic) => topic.id === topicId ? { ...topic, done: !topic.done } : topic) }
       : subject));
     announceSave(saved);
+  };
+
+  const setTopicPriority = (subjectId: string, topicId: string, priority: "high" | "medium" | "low") => {
+    announceSave(updateSubjects((current) => current.map((subject) => subject.id === subjectId
+      ? { ...subject, topics: subject.topics.map((topic) => topic.id === topicId ? { ...topic, priority } : topic) }
+      : subject)));
   };
 
   const updateNote = (value: string) => {
@@ -174,7 +189,7 @@ export default function StudyWorkspace() {
     secondsRef.current = 25 * 60;
     setSeconds(25 * 60);
     setTimerRunning(false);
-    const saved = updateStudyState(() => ({ subjects: [], examDate: "", focusSessions: 0 }));
+    const saved = updateStudyState(() => ({ subjects: [], examDate: "", focusSessions: 0, studyDays: [] }));
     setSelectedNote("");
     announceSave(saved, "Workspace cleared on this device.");
   };
@@ -257,7 +272,7 @@ export default function StudyWorkspace() {
       secondsRef.current = focusMinutes * 60;
       setSeconds(secondsRef.current);
     }
-    deadlineRef.current = Date.now() + secondsRef.current * 1000;
+    deadlineRef.current = currentTimestamp() + secondsRef.current * 1000;
     setTimerRunning(true);
   };
 
@@ -268,7 +283,7 @@ export default function StudyWorkspace() {
     setFocusTarget(target);
     secondsRef.current = minutes * 60;
     setSeconds(secondsRef.current);
-    deadlineRef.current = Date.now() + secondsRef.current * 1000;
+    deadlineRef.current = currentTimestamp() + secondsRef.current * 1000;
     setTimerRunning(true);
     setMessage(`${minutes}-minute focus session started for ${title}.`);
     document.getElementById("focus-timer")?.scrollIntoView({
@@ -319,7 +334,7 @@ export default function StudyWorkspace() {
       </section>
 
       <section className="overview-strip" aria-label="Revision overview">
-        <div className="overview-intro"><span className="section-kicker">YOUR BOARD / TODAY</span><p>Keep it light.<br /><strong>Keep it moving.</strong></p><span className="study-pace" aria-live="polite">{remainingMinutes === 0 ? "Your revision list is complete." : daysUntilExam === null ? "Set a date for your daily pace." : daysUntilExam === 0 ? "Exam day · choose a short review." : `About ${dailyTarget} min/day to finish before the exam.`}</span></div>
+        <div className="overview-intro"><span className="section-kicker">YOUR BOARD / TODAY</span><p>Keep it light.<br /><strong>Keep it moving.</strong></p><span className="study-pace" aria-live="polite">{remainingMinutes === 0 ? "Your revision list is complete." : daysUntilExam === null ? "Set a date for your daily pace." : daysUntilExam === 0 ? "Exam day · choose a short review." : `About ${dailyTarget} min/day to finish before the exam.`}</span><div className="study-week" aria-label={`Current study streak: ${studyStreak} days`}>{studyWeek.map((day) => <span key={day.key} className={day.studied ? "is-active" : ""} aria-label={`${day.label}: ${day.studied ? "studied" : "no session"}`} title={`${day.label}: ${day.studied ? "studied" : "no session"}`}>{day.label.slice(0, 1)}</span>)}<strong>{studyStreak} day streak</strong></div></div>
         <div className="overview-stat"><span>TOPICS DONE</span><strong>{finishedTopics}<small>/{totalTopics}</small></strong><p>{remainingMinutes.toLocaleString()} min left across subjects</p></div>
         <div className="overview-stat"><span>FOCUS SESSIONS</span><strong>{focusSessions.toString().padStart(2, "0")}</strong><p>completed here</p></div>
         <label className="exam-stat"><span>EXAM COUNTDOWN</span><strong>{daysUntilExam === null ? "—" : daysUntilExam.toString().padStart(2, "0")}<small>{daysUntilExam === null ? "set date" : daysUntilExam === 1 ? "day left" : "days left"}</small></strong><input aria-label="Set exam date" type="date" value={examDate} onChange={(event) => setExamDate(event.target.value)} /></label>
@@ -347,6 +362,11 @@ export default function StudyWorkspace() {
             <p className="timer-hint">Take one topic in. Leave the rest outside.</p>
           </article>
         </div>
+        <section className="daily-plan" aria-labelledby="daily-plan-title">
+          <div className="daily-plan-heading"><div><p className="section-kicker">A SMALL, DOABLE SET</p><h3 id="daily-plan-title">Today’s study plan</h3><p>{dailyTarget === null ? "A gentle 25-minute start. Set an exam date for a tailored daily target." : `Priority-first suggestions for your ${dailyBudget}-minute daily target.`}</p></div><span>{plannedMinutes} / {dailyBudget} min</span></div>
+          {dailyPlan.length ? <ol>{dailyPlan.map((topic) => <li key={topic.id}><span className={`priority-tag priority-${topic.priority}`}>{topic.priority}</span><span className="daily-plan-topic">{topic.title}<small>{topic.subject} · {topic.minutes} min</small></span><button type="button" disabled={timerRunning} onClick={() => startTopicFocus(topic.subject, topic.title, topic.minutes)}>Start focus</button></li>)}</ol> : <p className="daily-plan-empty">Add an unfinished topic and your plan will appear here.</p>}
+          <p className="daily-plan-foot">Suggestions only. A session never checks a topic off; you decide when it is done.</p>
+        </section>
       </section>
 
       <section className="subjects-section" id="subjects" aria-labelledby="subjects-title">
@@ -369,7 +389,7 @@ export default function StudyWorkspace() {
                 <div className="progress-line" aria-label={`${progress}% complete`}><span style={{ width: `${progress}%` }} /></div>
                 <p className="progress-copy">{done} of {subject.topics.length} topics checked off · {minutesLeft} min left</p>
                 {subject.topics.length ? <ul className="topic-list">{subject.topics.map((topic) => <li key={topic.id} className={topic.done ? "topic-done" : ""}>
-                  <button type="button" className="topic-check" aria-label={`${topic.done ? "Reopen" : "Complete"} ${topic.title}`} aria-pressed={topic.done} onClick={() => toggleTopic(subject.id, topic.id)}>{topic.done ? "✓" : ""}</button><span>{topic.title}</span><small>{topic.minutes}m</small>{!topic.done && <button type="button" className="focus-topic" aria-label={`Start a ${topic.minutes}-minute focus session for ${topic.title}`} disabled={timerRunning} onClick={() => startTopicFocus(subject.name, topic.title, topic.minutes)}>Focus</button>}
+                  <button type="button" className="topic-check" aria-label={`${topic.done ? "Reopen" : "Complete"} ${topic.title}`} aria-pressed={topic.done} onClick={() => toggleTopic(subject.id, topic.id)}>{topic.done ? "✓" : ""}</button><span>{topic.title}</span><small>{topic.minutes}m</small><select className={`topic-priority priority-${topic.priority}`} aria-label={`Priority for ${topic.title}`} value={topic.priority} onChange={(event) => setTopicPriority(subject.id, topic.id, event.target.value as "high" | "medium" | "low")}><option value="high">High</option><option value="medium">Normal</option><option value="low">Low</option></select>{!topic.done && <button type="button" className="focus-topic" aria-label={`Start a ${topic.minutes}-minute focus session for ${topic.title}`} disabled={timerRunning} onClick={() => startTopicFocus(subject.name, topic.title, topic.minutes)}>Focus</button>}
                 </li>)}</ul> : <p className="empty-topics">Start with one topic you can finish in a sitting.</p>}
                 <form className="add-topic" onSubmit={(event) => addTopic(event, subject.id)}><label className="sr-only" htmlFor={`topic-${subject.id}`}>Add topic to {subject.name}</label><input id={`topic-${subject.id}`} value={topicDrafts[subject.id] || ""} onChange={(event) => setTopicDrafts((current) => ({ ...current, [subject.id]: event.target.value }))} placeholder="Add a topic…" maxLength={100} disabled={subject.topics.length >= 40} /><label className="sr-only" htmlFor={`topic-minutes-${subject.id}`}>Estimated minutes, 5 to 120</label><input id={`topic-minutes-${subject.id}`} className="topic-minutes-input" type="number" min={5} max={120} step={1} value={topicMinuteDrafts[subject.id] ?? "25"} onChange={(event) => setTopicMinuteDrafts((current) => ({ ...current, [subject.id]: event.target.value }))} disabled={subject.topics.length >= 40} /><span className="topic-minutes-unit" aria-hidden="true">min</span><button type="submit" aria-label={`Add topic to ${subject.name}`} disabled={!topicDrafts[subject.id]?.trim() || subject.topics.length >= 40}>+</button></form>
               </article>;

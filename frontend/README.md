@@ -1,6 +1,6 @@
 # Last-Minute Study frontend
 
-The Next.js App Router client for the local-first revision workspace. It includes the focus timer, subject/topic planner, progress tracking, exam countdown, and private per-subject notes.
+The Next.js App Router client for the local-first revision workspace. It includes the focus timer, priority-based daily plan, subject/topic planner, study streak, exam countdown, and private per-subject notes.
 
 For product scope, privacy notes, and deployment setup, see the [repository README](../README.md).
 

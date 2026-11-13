@@ -9,13 +9,16 @@
 - Set an exam date and see a live day countdown.
 - Add up to 12 subjects, search by subject or topic, and build each list from small revision sessions.
 - Set each new topic's estimate from 5 to 120 minutes; its focus timer uses that same estimate.
+- Mark topics high, normal, or low priority; older backups keep working and default to normal priority.
 - Check off topics and see progress update immediately.
 - See the estimated minutes left for each subject and across the whole plan.
 - Set a realistic daily study target from unfinished minutes and your exam date; it recalculates as you finish topics and rolls over at local midnight.
+- Get a priority-first daily plan that fits the target when possible, then start any suggested focus session yourself. Suggestions never check topics off.
 - Use the 25-minute focus timer, pause it, resume it, or reset it. Its clock stays accurate when a browser tab is in the background.
 - Start a 25-minute focus session directly from any unfinished topic; the timer shows the selected topic and never marks it complete automatically.
 - Keep a short note for each subject.
 - Continue where you left off: subjects, progress, exam date, focus count, and notes are saved in this browser.
+- See a seven-day study strip and current streak based only on focus sessions you finish in the timer.
 - Download a versioned JSON backup or restore it on another browser; the file stays on your device until you choose where to save it.
 - Clear all local study data when you need a fresh start; this also stops and resets an active focus timer.
 
