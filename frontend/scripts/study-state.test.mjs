@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDailyPlan, calendarDaysUntil, currentStudyStreak, parseSavedState, recentStudyWeek, recordFocusSession } from "../app/study-state.ts";
+import { buildDailyPlan, calendarDaysUntil, currentStudyStreak, focusMinutesForDay, parseSavedState, recentStudyWeek, recordFocusSession } from "../app/study-state.ts";
 
 const parseDate = (examDate) => parseSavedState(JSON.stringify({ subjects: [], examDate })).examDate;
 
@@ -57,4 +57,28 @@ test("completed focus sessions update local study days and a consecutive streak 
   assert.equal(recentStudyWeek(next.studyDays, today).filter((day) => day.studied).length, 2);
   assert.equal(currentStudyStreak(next.studyDays, new Date(2026, 3, 12, 12).getTime()), 0);
   assert.equal(recordFocusSession(next, "not-a-date"), next);
+});
+
+test("tracks completed focus minutes per day without mutating prior state", () => {
+  const state = parseSavedState(JSON.stringify({ subjects: [], focusSessions: 4, studyDays: [] }));
+  const first = recordFocusSession(state, "2026-04-10", 15);
+  const next = recordFocusSession(first, "2026-04-10", 25);
+  assert.equal(focusMinutesForDay(next, "2026-04-10"), 40);
+  assert.equal(focusMinutesForDay(state, "2026-04-10"), 0);
+  assert.equal(next.focusSessions, 6);
+  assert.equal(recordFocusSession(next, "2026-04-10", 0), next);
+  assert.equal(recordFocusSession(next, "2026-04-10", 300).focusMinutesByDay[0].minutes, 160);
+});
+
+test("migrates older backups and safely normalizes daily focus history", () => {
+  const old = parseSavedState(JSON.stringify({ subjects: [] }));
+  assert.deepEqual(old.focusMinutesByDay, []);
+  const restored = parseSavedState(JSON.stringify({ subjects: [], focusMinutesByDay: [
+    { date: "2026-04-10", minutes: 20 },
+    { date: "2026-04-10", minutes: 35 },
+    { date: "2026-02-31", minutes: 99 },
+    { date: "2026-04-11", minutes: -2 },
+  ] }));
+  assert.equal(focusMinutesForDay(restored, "2026-04-10"), 55);
+  assert.equal(restored.focusMinutesByDay.length, 1);
 });

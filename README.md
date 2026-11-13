@@ -19,6 +19,7 @@
 - Keep a short note for each subject.
 - Continue where you left off: subjects, progress, exam date, focus count, and notes are saved in this browser.
 - See a seven-day study strip and current streak based only on focus sessions you finish in the timer.
+- Track completed focus minutes per day and compare today's logged time with your exam-based daily target; older backups migrate without losing existing data.
 - Download a versioned JSON backup or restore it on another browser; the file stays on your device until you choose where to save it.
 - Clear all local study data when you need a fresh start; this also stops and resets an active focus timer.
 

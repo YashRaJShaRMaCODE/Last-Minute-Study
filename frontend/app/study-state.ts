@@ -1,7 +1,7 @@
 export type TopicPriority = "high" | "medium" | "low";
 export type Topic = { id: string; title: string; minutes: number; done: boolean; priority: TopicPriority };
 export type Subject = { id: string; name: string; color: string; topics: Topic[]; note: string };
-export type SavedState = { subjects: Subject[]; examDate: string; focusSessions: number; studyDays: string[] };
+export type SavedState = { subjects: Subject[]; examDate: string; focusSessions: number; studyDays: string[]; focusMinutesByDay: { date: string; minutes: number }[] };
 
 const STORAGE_KEY = "last-minute-study.v1";
 const COLORS = ["#584be1", "#e77953", "#258c76", "#bc5b90", "#397db4"];
@@ -43,6 +43,7 @@ export const DEFAULT_STATE: SavedState = {
   examDate: "",
   focusSessions: 0,
   studyDays: [],
+  focusMinutesByDay: [],
 };
 
 function isCalendarDate(value: unknown): value is string {
@@ -89,13 +90,23 @@ export function localDateKey(timestamp: number) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function recordFocusSession(state: SavedState, date: string): SavedState {
-  if (!isCalendarDate(date)) return state;
+export function recordFocusSession(state: SavedState, date: string, minutes = 25): SavedState {
+  if (!isCalendarDate(date) || !Number.isFinite(minutes) || minutes < 1) return state;
+  const duration = Math.min(120, Math.floor(minutes));
+  const focusMinutesByDay = state.focusMinutesByDay.map((entry) => ({ ...entry }));
+  const day = focusMinutesByDay.find((entry) => entry.date === date);
+  if (day) day.minutes = Math.min(720, day.minutes + duration);
+  else focusMinutesByDay.push({ date, minutes: duration });
   return {
     ...state,
     focusSessions: state.focusSessions + 1,
     studyDays: [...new Set([...state.studyDays, date])].sort().slice(-120),
+    focusMinutesByDay: focusMinutesByDay.sort((a, b) => a.date.localeCompare(b.date)).slice(-120),
   };
+}
+
+export function focusMinutesForDay(state: SavedState, date: string) {
+  return state.focusMinutesByDay.find((entry) => entry.date === date)?.minutes ?? 0;
 }
 
 export function currentStudyStreak(studyDays: string[], today: number) {
@@ -164,6 +175,16 @@ export function parseSavedState(snapshot: string): SavedState {
       examDate,
       focusSessions: Math.max(0, Math.floor(Number(parsed.focusSessions) || 0)),
       studyDays: Array.isArray(parsed.studyDays) ? [...new Set(parsed.studyDays.filter(isCalendarDate))].sort().slice(-120) : [],
+      focusMinutesByDay: Array.isArray(parsed.focusMinutesByDay)
+        ? parsed.focusMinutesByDay.flatMap((entry) => entry && isCalendarDate(entry.date) && Number.isFinite(entry.minutes) && entry.minutes > 0
+          ? [{ date: entry.date, minutes: Math.min(720, Math.floor(entry.minutes)) }]
+          : []).reduce<{ date: string; minutes: number }[]>((days, entry) => {
+            const existing = days.find((day) => day.date === entry.date);
+            if (existing) existing.minutes = Math.min(720, existing.minutes + entry.minutes);
+            else days.push(entry);
+            return days;
+          }, []).sort((a, b) => a.date.localeCompare(b.date)).slice(-120)
+        : [],
     };
   } catch {
     return DEFAULT_STATE;

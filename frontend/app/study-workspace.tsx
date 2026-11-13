@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type CSSProperties, type FormEvent } from "react";
-import { buildDailyPlan, calendarDaysUntil, currentStudyStreak, getServerStudySnapshot, getStudySnapshot, localDateKey, parseSavedState, recentStudyWeek, recordFocusSession, subscribeToStudyState, updateStudyState } from "./study-state";
+import { buildDailyPlan, calendarDaysUntil, currentStudyStreak, focusMinutesForDay, getServerStudySnapshot, getStudySnapshot, localDateKey, parseSavedState, recentStudyWeek, recordFocusSession, subscribeToStudyState, updateStudyState } from "./study-state";
 
 const COLORS = ["#584be1", "#e77953", "#258c76", "#bc5b90", "#397db4"];
 const STORAGE_WARNING = "Storage is unavailable. Changes stay here until this page reloads or closes.";
@@ -79,7 +79,7 @@ export default function StudyWorkspace() {
     setTimerRunning(false);
     focusTargetRef.current = null;
     setFocusTarget(null);
-    updateStudyState((currentState) => recordFocusSession(currentState, localDateKey(Date.now())));
+    updateStudyState((currentState) => recordFocusSession(currentState, localDateKey(Date.now()), completedTarget?.minutes ?? 25));
     setMessage(completedTarget
       ? `Focus session complete for ${completedTarget.title}. Mark it done when you're ready.`
       : "Focus session complete. Take a short break before the next one.");
@@ -122,6 +122,7 @@ export default function StudyWorkspace() {
   const plannedMinutes = dailyPlan.reduce((total, topic) => total + topic.minutes, 0);
   const studyStreak = today === null ? 0 : currentStudyStreak(saved.studyDays, today);
   const studyWeek = today === null ? [] : recentStudyWeek(saved.studyDays, today);
+  const todayFocusMinutes = today === null ? 0 : focusMinutesForDay(saved, localDateKey(today));
   const visibleSubjects = subjects.filter((subject) =>
     `${subject.name} ${subject.topics.map((topic) => topic.title).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
@@ -189,7 +190,7 @@ export default function StudyWorkspace() {
     secondsRef.current = 25 * 60;
     setSeconds(25 * 60);
     setTimerRunning(false);
-    const saved = updateStudyState(() => ({ subjects: [], examDate: "", focusSessions: 0, studyDays: [] }));
+    const saved = updateStudyState(() => ({ subjects: [], examDate: "", focusSessions: 0, studyDays: [], focusMinutesByDay: [] }));
     setSelectedNote("");
     announceSave(saved, "Workspace cleared on this device.");
   };
@@ -334,7 +335,7 @@ export default function StudyWorkspace() {
       </section>
 
       <section className="overview-strip" aria-label="Revision overview">
-        <div className="overview-intro"><span className="section-kicker">YOUR BOARD / TODAY</span><p>Keep it light.<br /><strong>Keep it moving.</strong></p><span className="study-pace" aria-live="polite">{remainingMinutes === 0 ? "Your revision list is complete." : daysUntilExam === null ? "Set a date for your daily pace." : daysUntilExam === 0 ? "Exam day · choose a short review." : `About ${dailyTarget} min/day to finish before the exam.`}</span><div className="study-week" aria-label={`Current study streak: ${studyStreak} days`}>{studyWeek.map((day) => <span key={day.key} className={day.studied ? "is-active" : ""} aria-label={`${day.label}: ${day.studied ? "studied" : "no session"}`} title={`${day.label}: ${day.studied ? "studied" : "no session"}`}>{day.label.slice(0, 1)}</span>)}<strong>{studyStreak} day streak</strong></div></div>
+        <div className="overview-intro"><span className="section-kicker">YOUR BOARD / TODAY</span><p>Keep it light.<br /><strong>Keep it moving.</strong></p><span className="study-pace" aria-live="polite">{remainingMinutes === 0 ? "Your revision list is complete." : daysUntilExam === null ? "Set a date for your daily pace." : daysUntilExam === 0 ? "Exam day · choose a short review." : `About ${dailyTarget} min/day to finish before the exam.`}</span><div className="study-week" aria-label={`Current study streak: ${studyStreak} days`}>{studyWeek.map((day) => <span key={day.key} className={day.studied ? "is-active" : ""} aria-label={`${day.label}: ${day.studied ? "studied" : "no session"}`} title={`${day.label}: ${day.studied ? "studied" : "no session"}`}>{day.label.slice(0, 1)}</span>)}<strong>{studyStreak} day streak</strong></div><span className="study-pace">Today: {todayFocusMinutes} focus min{dailyTarget ? ` / ${dailyTarget} target` : " logged"}</span></div>
         <div className="overview-stat"><span>TOPICS DONE</span><strong>{finishedTopics}<small>/{totalTopics}</small></strong><p>{remainingMinutes.toLocaleString()} min left across subjects</p></div>
         <div className="overview-stat"><span>FOCUS SESSIONS</span><strong>{focusSessions.toString().padStart(2, "0")}</strong><p>completed here</p></div>
         <label className="exam-stat"><span>EXAM COUNTDOWN</span><strong>{daysUntilExam === null ? "—" : daysUntilExam.toString().padStart(2, "0")}<small>{daysUntilExam === null ? "set date" : daysUntilExam === 1 ? "day left" : "days left"}</small></strong><input aria-label="Set exam date" type="date" value={examDate} onChange={(event) => setExamDate(event.target.value)} /></label>
